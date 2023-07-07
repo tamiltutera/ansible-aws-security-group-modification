@@ -1,0 +1,52 @@
+---
+- name: Manage AWS Security Groups
+  hosts: localhost
+  gather_facts: False
+  vars_files:
+    - secrets.yml
+  vars:
+    region: "us-east-1"
+    security_group_name: "tamil-security-group"
+    vpc_id: "vpc-03ea4b3e44d7bf10f"
+    security_group_rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 10.0.0.0/24
+      - proto: tcp
+        from_port: 8090
+        to_port: 8090
+        cidr_ip: 0.0.0.0/0
+  tasks:
+    - name: Retreive Security Group
+      ec2_group_info:
+        region: "{{ region }}"
+        filters:
+          group-name:
+            - "{{ security_group_name }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+      register: security_group_info
+    - debug:
+        msg: "{{ security_group_info }}"
+    - set_fact:
+        security_group_id: "{{ item.group_id }}"
+      with_items: "{{ security_group_info.security_groups }}"
+    - name: Modify Security Group
+      ec2_group:
+        group_id: "{{ security_group_id }}"
+        name: "{{ security_group_name }}"
+        description: "Creating group name for ec2 instances"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ region }}"
+        rules:  "{{ security_group_rules }}"  
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+      register: ec2_modify_sgrp
+    - debug:
+        msg: "{{ ec2_modify_sgrp }}"
+    - debug:
+        msg: "{{ ec2_modify_sgrp.ip_permissions }}"
+    - debug:
+        msg: "{{ security_group_name }} modified successfully"  
+      when: ec2_modify_sgrp.changed
